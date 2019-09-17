@@ -5,11 +5,6 @@
 #include <Servo.h>
 #include <Arduino_JSON.h>
 
-
-//TODO: 
-//      WIRE UP MOISTURE SENSOR
-//      Program Moisture sensor
-
 /********************************************************************/
 //Variable Definitions
 
@@ -24,11 +19,11 @@
 
   //Gas Sensor Definitions
   double methanePPM;
-  char methanePPMArr[5];
   const int GAS_SENSOR_PIN = 1;
 
   //Moisture Sensor Definitions;
-  
+  int moistureValue;
+  const int MOISTURE_SENSOR_PIN = 3;
 
   //Sleep Definitions
   const int button_read_sleep = 250;
@@ -39,8 +34,8 @@
   const int VENT_SERVO_PIN = 9;
   Servo ventServo;
   bool ventState;
-  const int vent_closed_pos = 0;
-  const int vent_open_pos = 180;
+  const int vent_closed_pos = 134;
+  const int vent_open_pos = 0;
   const int servo_motion_sleep = 1000;
 
   //Temperature Definitions
@@ -49,12 +44,10 @@
     #define ONE_WIRE_BUS 2
     OneWire oneWire(ONE_WIRE_BUS);
     DallasTemperature sensors(&oneWire);
-    char compostTempF[5];
     int compostTempValue;
 
     //Ambient Temp/Humidity Definitions
     Adafruit_Si7021 sensorAmbTemp = Adafruit_Si7021();
-    char ambientTempF[5];
     int envDataReturnArr[2]; 
     int* ambientEnvData;
     int ambientTempValue;
@@ -69,11 +62,6 @@ int getInternalTemperature(void)
   if (sensorValue < 0) {
     sensorValue = 0.0;
   }
-  char charArray[5];
-  dtostrf(sensorValue, 5, 0, charArray);
-  for(int i=0; i<sizeof(charArray); i++){
-    compostTempF[i] = charArray[i];
-  }
   return sensorValue;
 }
 
@@ -81,11 +69,6 @@ int * getAmbientEnvData(int *arr) {
   int temperatureC = sensorAmbTemp.readTemperature();
   int temperatureF = (temperatureC * 9.0 / 5.0) + 32.0;
   int humidity = sensorAmbTemp.readHumidity();  
-  char charArray[5];
-  dtostrf(temperatureF, 5, 0, charArray);
-  for(int i=0; i<sizeof(charArray); i++){
-    ambientTempF[i] = charArray[i];
-  }
   arr[0] = temperatureF;
   arr[1] = humidity;
   return arr;
@@ -97,12 +80,13 @@ double getMethanePPM(){
   if (ppm < 0) {
     ppm = 0;
   }
-  char charArray[5];
-  dtostrf(ppm, 5, 0, charArray);
-  for(int i=0; i<sizeof(charArray); i++){
-    methanePPMArr[i] = charArray[i];
-  }
   return ppm;
+}
+
+int getMoistureValue()
+{
+  float sensorValue = analogRead(MOISTURE_SENSOR_PIN);
+  return (sensorValue/1023)*100;
 }
 
 void setup() {
@@ -124,6 +108,7 @@ void consumeSensorData() {
     ambientTempValue = ambientEnvData[0];
     ambientHumidityValue = ambientEnvData[1];
     lightValue = analogRead(LIGHT_SENSOR_PIN); 
+    moistureValue = getMoistureValue();
     //Serial.println(lightValue);
 
     JSONVar jsonObject;
@@ -131,6 +116,7 @@ void consumeSensorData() {
     jsonObject["ambient_humidity"] = ambientHumidityValue;
     jsonObject["compost_temperature"] = compostTempValue;
     jsonObject["methane_ppm"] = methanePPM;
+    jsonObject["compost_moisture"] = moistureValue;
     if(lightValue > containerOpenThreshold){
       jsonObject["container_state"] = "OPEN"; 
     }
